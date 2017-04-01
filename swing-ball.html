@@ -1,0 +1,364 @@
+<html>
+    <head>
+        <meta chartset="utf-8">
+        <title>Swing balls</title>
+        <style>
+            div{
+                height:800px;
+                width:800px;
+                margin-left:600px;
+                position:relative;
+                /*margin:200px;*/
+            }
+            #front{
+                position: absolute;
+                top:0;
+                left:0;
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+            <canvas id="back" width='800' height='800'></canvas>
+            <canvas id="front" width='800' height='800'></canvas>
+        </div>
+    </body>
+    <script>
+        var backCanvas = document.getElementById('back');
+        var backCxt = backCanvas.getContext('2d');
+
+        // var frontCanvas = document.getElementById('front');
+        // var frontCxt = backCanvas.getContext('2d');
+
+        var FILLCOLOR = '#900b09';
+        var RADIUS = 20;
+        var Rope_length = 200;
+        var left = {x: 220, y:320};
+        var ball_num = 4;
+        var draw_ball = function(cxt, location){
+            cxt.beginPath();
+            cxt.arc(location.x, location.y, RADIUS, 0, Math.PI * 2);
+            cxt.fillStyle=FILLCOLOR;
+            cxt.closePath();
+            cxt.fill();
+        }
+        var draw_all_balls = function(cxt){
+            for (var i = 0; i < ball_num; i++){
+                var location = {};
+                location.x = left.x + i * 40;
+                location.y = left.y; 
+                draw_ball(cxt, location);
+            }
+        }
+
+        var draw_line = function(cxt, begin, end){
+            cxt.beginPath();
+            cxt.moveTo(begin.x,begin.y);
+            cxt.lineTo(end.x,end.y);
+            cxt.strokeStyle = FILLCOLOR;
+            cxt.stroke();
+        }
+        var draw_all_lines = function(cxt) {
+            for (var i = 0; i< ball_num; i++) {
+                var begin = {};
+                begin.x = left.x + i * 40;
+                begin.y = 120;
+                var end = {};
+                end.x = left.x + i * 40;
+                end.y = left.y;
+                draw_line(cxt, begin, end);
+            }
+        }
+
+
+        draw_all_balls(backCxt);
+        draw_all_lines(backCxt);
+
+
+        var frontCanvas = document.getElementById('front');
+        var frontCxt = frontCanvas.getContext('2d');
+
+        var leftball = {x: 180, y:320},
+            rightball = {x: 380, y: 320};
+        draw_ball(frontCxt, leftball);
+        draw_line(frontCxt, {x:180, y:120}, leftball);
+
+        draw_ball(frontCxt, rightball);
+        draw_line(frontCxt, {x:380, y:120}, rightball);
+        var Gravity = 9.8;
+        // var beginTheta = Math.PI * 
+        var leftBeginLocation = {x: leftball.x - Rope_length * Math.sin(Math.PI * 0.25), y: leftball.y - Rope_length * (1 - Math.cos(Math.PI * 0.25))};
+        var rightBeginLocation = {x: 380, y: 120};
+        var current_location = function(args){
+            var current_frame_time = args.current_frame_time,
+                last_frame_time = args.last_frame_time,
+                last_location = args.last_location,
+                last_velocity = args.last_velocity,
+                verticalLoc = args.verticalLoc,
+                side = args.side,
+                direction = args.direction;
+
+
+            var time = (current_frame_time - last_frame_time)/1000;
+            var theta = get_theta(last_location, verticalLoc);
+            var accelory = Gravity * Math.sin(theta);
+            var move_dist, delta_theta, dist_from_verticalLoc, dist_from_bottom;
+            switch(direction){
+                case 'down':
+                    move_dist = last_velocity * time + 0.5 * accelory * Math.pow(time, 2);
+                    delta_theta = Math.atan(move_dist/Rope_length);
+
+                    dist_from_verticalLoc = Rope_length * Math.sin((theta - delta_theta));
+                    dist_from_bottom = Rope_length * (1 - Math.cos((theta - delta_theta)));
+                    break;
+                case 'up':
+                    move_dist = last_velocity * time - 0.5 * accelory * Math.pow(time, 2);
+                    delta_theta = Math.atan(move_dist/Rope_length);
+
+                    dist_from_verticalLoc = Rope_length * Math.sin(Math.abs(theta + delta_theta));
+                    dist_from_bottom = Rope_length * (1 - Math.cos(Math.abs(theta + delta_theta)));
+                    break;
+                default:
+                    return undefined;
+            }
+            // var move_dist = last_velocity * time + 0.5 * accelory * Math.pow(time, 2);
+            // var delta_theta = Math.atan(move_dist/Rope_length);
+
+            // var dist_from_verticalLoc = Rope_length * Math.sin(theta - delta_theta);
+            // var dist_from_bottom = Rope_length * (1 - Math.cos(theta - delta_theta));
+            var loc;
+            // console.log(side);
+            switch(side) {
+                case 'left':
+                    loc = {x: verticalLoc.x - dist_from_verticalLoc, y: verticalLoc.y - dist_from_bottom};
+                    break;
+                case 'right':
+                    loc = {x: verticalLoc.x + dist_from_verticalLoc, y: verticalLoc.y - dist_from_bottom};
+                    break;
+                default:
+                    loc = undefined;
+            }
+            // console.log('loc', loc);
+            return loc;
+        };
+
+        var update_velocity = function(last_veloc, time, theta, direction){
+            time /= 1000;
+            var accelory = Gravity * Math.sin(theta), veloc;
+            switch(direction){
+                case 'up':
+                    veloc = last_veloc - accelory * time;
+                    break;
+                case 'down':
+                    veloc = last_veloc + accelory * time;
+                    break;
+                default:
+                    veloc = undefined;
+            }
+
+            return veloc;
+        }
+        var get_theta = function(location, verticalLoc){
+            var theta = Math.asin(Math.abs(location.x - verticalLoc.x)/Rope_length);
+            
+            return theta;
+        }
+
+        window.requestAnimationFrame = (function(){
+            return window.requestAnimationFrame ||
+                   window.webkitRequestAnimationFrame ||
+                   window.mozRequestAnimationFrame ||
+                   function(callback) {
+                       return setTimeout(callback, 1000/60);
+                   };
+        })();
+        var beginTime = new Date().getTime();
+        var beginVeloc = 0;
+        var i = 0;
+        var leftdown = function(){
+            var currTime = new Date().getTime();
+            if (currTime - beginTime > 1000) {
+                restart();
+                return;
+            }
+            var args = {
+                current_frame_time: currTime,
+                last_frame_time: beginTime,
+                last_location: leftBeginLocation,
+                last_velocity: beginVeloc,
+                verticalLoc: {x:leftball.x, y: leftball.y},
+                side: 'left',
+                direction: 'down'
+
+            }
+            
+            var theta = get_theta(args.last_location, args.verticalLoc);
+            var time = args.current_frame_time - args.last_frame_time;
+            beginVeloc = update_velocity(beginVeloc, time, theta, 'down');
+            // console.log('beginVeloc', args.last_velocity);
+            // console.log('begintime', args.last_frame_time);
+            var location = current_location(args);
+            // console.log( location.x);
+            frontCxt.clearRect(0,0,200,340);
+            if (location.x >= leftball.x) {
+            
+                draw_ball(frontCxt, leftball);
+                draw_line(frontCxt, {x: 180, y: 120}, location);
+                // console.log('exectime', new Date().getTime() - args.last_frame_time);
+                beginTime = currTime;
+                leftBeginLocation = leftball;
+                requestAnimationFrame(rightup);
+                return;
+            }
+            // frontCxt.clearRect(0,0,backCanvas.width, backCanvas.height);
+            
+            draw_ball(frontCxt, location);
+            draw_line(frontCxt, {x: 180, y: 120}, location);
+
+            beginTime = currTime;
+            leftBeginLocation = location;
+
+            requestAnimationFrame(leftdown);
+        }
+        var i = 0;
+        var rightup =  function(){
+            var currTime = new Date().getTime();
+            if (currTime - beginTime > 1000) {
+                restart();
+                return;
+            }
+            var args = {
+                current_frame_time: currTime,
+                last_frame_time: beginTime,
+                last_location: rightBeginLocation,
+                last_velocity: beginVeloc,
+                verticalLoc: {x:rightball.x, y: rightball.y},
+                side: 'right',
+                direction: 'up'
+
+            }
+            
+            var theta = get_theta(args.last_location, args.verticalLoc);
+            var time = args.current_frame_time - args.last_frame_time;
+            // console.log('theta', theta);
+            beginVeloc = update_velocity(beginVeloc, time, theta, args.direction);
+            // console.log('beginVeloc', beginVeloc);
+            // console.log('begintime', args.last_frame_time);
+            var location = current_location(args);
+            // console.log( location.x);
+            if (beginVeloc <= 0) {
+                beginVeloc = 0;
+                requestAnimationFrame(rightdown);
+                return;
+            }
+           
+            frontCxt.clearRect(360,0,600,340);
+            
+            draw_ball(frontCxt, location);
+            draw_line(frontCxt, {x: 380, y: 120}, location);
+            // i++;
+
+            // 
+            // if (i>100){
+                beginTime = currTime;
+                rightBeginLocation = location;
+            // }
+            requestAnimationFrame(rightup);
+        }
+
+        var rightdown =  function(){
+            var currTime = new Date().getTime();
+            if (currTime - beginTime > 1000) {
+                restart();
+                return;
+            }
+            console.log(rightBeginLocation);
+            var args = {
+                current_frame_time: currTime,
+                last_frame_time: beginTime,
+                last_location: rightBeginLocation,
+                last_velocity: beginVeloc,
+                verticalLoc: {x:rightball.x, y: rightball.y},
+                side: 'right',
+                direction: 'down'
+
+            }
+            
+            var theta = get_theta(args.last_location, args.verticalLoc);
+            var time = args.current_frame_time - args.last_frame_time;
+            console.log('theta', theta);
+            beginVeloc = update_velocity(beginVeloc, time, theta, args.direction);
+            console.log('beginVeloc', beginVeloc);
+            // console.log('begintime', args.last_frame_time);
+            var location = current_location(args);
+            console.log( location.x);
+            frontCxt.clearRect(360,0,600,340);
+            if (location.x <= rightball.x) {
+                draw_ball(frontCxt, rightball);
+                draw_line(frontCxt, {x: 380, y: 120}, location);
+                requestAnimationFrame(leftup);
+                return;
+            }
+           
+            
+            
+            draw_ball(frontCxt, location);
+            draw_line(frontCxt, {x: 380, y: 120}, location);
+            // i++;
+
+            // 
+            // if (i>100){
+                beginTime = currTime;
+                rightBeginLocation = location;
+            // }
+            requestAnimationFrame(rightdown);
+        }
+        var j = 0;
+        var leftup =  function(){
+            var currTime = new Date().getTime();
+            if (currTime - beginTime > 1000) {
+                restart();
+                return;
+            }
+            var args = {
+                current_frame_time: currTime,
+                last_frame_time: beginTime,
+                last_location: leftBeginLocation,
+                last_velocity: beginVeloc,
+                verticalLoc: {x:leftball.x, y: leftball.y},
+                side: 'left',
+                direction: 'up'
+
+            }
+            
+            var theta = get_theta(args.last_location, args.verticalLoc);
+            var time = args.current_frame_time - args.last_frame_time;
+            // console.log('theta', theta);
+            beginVeloc = update_velocity(beginVeloc, time, theta, args.direction);
+            // console.log('beginVeloc', beginVeloc);
+            // console.log('begintime', args.last_frame_time);
+            var location = current_location(args);
+            // console.log( location.x);
+            if (beginVeloc <= 0) {
+                beginVeloc = 0;
+                requestAnimationFrame(leftdown);
+                return;
+            }
+           
+            frontCxt.clearRect(0, 0, 200, 340);
+            
+            draw_ball(frontCxt, location);
+            draw_line(frontCxt, {x: 180, y: 120}, location);
+
+            beginTime = currTime;
+            leftBeginLocation = location;
+            requestAnimationFrame(leftup);
+        }
+
+        requestAnimationFrame(leftdown);
+        function restart(){
+            beginTime = new Date().getTime();
+            requestAnimationFrame(leftdown);
+        }
+    </script>
+</html>

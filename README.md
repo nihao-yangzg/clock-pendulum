@@ -1,1 +1,2 @@
-clock pendulum --> swing balls
+# clock-pendulum
+# clock pendulum --> swing balls
